@@ -1,5 +1,9 @@
 # Payment Gateway
 
+[![Build and publish](https://github.com/nik-makarov/payment-gateway-challenge-java/actions/workflows/build.yml/badge.svg?branch=main&event=push)](https://github.com/nik-makarov/payment-gateway-challenge-java/actions/workflows/build.yml?query=branch%3Amain)
+
+[Test coverage and reports](https://github.com/nik-makarov/payment-gateway-challenge-java/actions/workflows/build.yml?query=branch%3Amain)
+
 ## Purpose
 
 Java 17 / Spring Boot implementation of
@@ -9,15 +13,15 @@ last four card digits.
 
 ## Run
 
-Requires Java Development Kit (JDK) 17 and Docker Compose for the bank simulator.
+Requires Docker Compose. Build and start the gateway together with the bank simulator:
 
 ```sh
-docker compose up -d   # Bank simulator: localhost:8080
-./gradlew bootRun     # Gateway: localhost:8090
+docker compose up --build
 ```
 
+The gateway listens on `localhost:8090`; the bank simulator listens on `localhost:8080`.
 [Swagger UI](http://localhost:8090/swagger-ui/index.html) provides interactive API documentation.
-Stop the simulator with `docker compose down`.
+Stop both services with `docker compose down`.
 
 The simulator authorizes card numbers ending in `1/3/5/7/9`, declines `2/4/6/8`, and returns `503`
 for `0`.

@@ -1,8 +1,5 @@
-version: "3.8"
-
 services:
   bank_simulator:
-    container_name: bank_simulator
     image: bbyars/mountebank:2.8.1
     ports:
       - "2525:2525"
@@ -12,4 +9,27 @@ services:
       - type: bind
         source: ./imposters
         target: /imposters
-      
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          require('http').get('http://127.0.0.1:2525/imposters/8080',
+          response => process.exit(response.statusCode === 200 ? 0 : 1))
+          .on('error', () => process.exit(1))
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+
+  gateway:
+    build: .
+    image: payment-gateway:local
+    ports:
+      - "8090:8090"
+    environment:
+      BANK_BASE_URL: http://bank_simulator:8080
+    depends_on:
+      bank_simulator:
+        condition: service_healthy

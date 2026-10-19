@@ -46,6 +46,46 @@ tasks.named('jacocoTestReport') {
     xml.required = true
     csv.required = false
   }
+  def summaryFile = layout.buildDirectory.file('reports/jacoco/test/summary.md')
+  outputs.file(summaryFile)
+
+  doLast {
+    // JaCoCo declares a DTD; parse the report without loading external resources.
+    def parser = new XmlSlurper(false, false)
+    parser.setFeature('http://apache.org/xml/features/disallow-doctype-decl', false)
+    parser.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
+    parser.setFeature('http://xml.org/sax/features/external-general-entities', false)
+    parser.setFeature('http://xml.org/sax/features/external-parameter-entities', false)
+    def report = parser.parse(reports.xml.outputLocation.get().asFile)
+    def metrics = [LINE: 'Lines', BRANCH: 'Branches'].collect { type, label ->
+      def counter = report.counter.find { it.@type.text() == type }
+      long covered = counter.isEmpty() ? 0 : counter.@covered.text().toLong()
+      long missed = counter.isEmpty() ? 0 : counter.@missed.text().toLong()
+      long total = covered + missed
+      double percentage = total == 0 ? 0 : 100.0d * covered / total
+      def value = total == 0 ? 'n/a' : String.format(Locale.ROOT, '%.1f', percentage)
+      def color = total == 0 ? 'lightgrey' : percentage >= 90 ? 'brightgreen' :
+          percentage >= 75 ? 'yellow' : 'red'
+      [label: label, covered: covered, total: total, value: value, color: color]
+    }
+    def summary = new StringBuilder('## Test coverage\n\n')
+    metrics.each { metric ->
+      def badgeValue = metric.total == 0 ? 'n%2Fa' : "${metric.value}%25"
+      summary.append("![${metric.label} coverage](https://img.shields.io/badge/")
+          .append("${metric.label.toLowerCase(Locale.ROOT)}-${badgeValue}-${metric.color}) ")
+    }
+    summary.append('\n\n| Metric | Coverage | Covered / Total |\n|---|---:|---:|\n')
+    metrics.each { metric ->
+      def coverage = metric.total == 0 ? metric.value : "${metric.value}%"
+      summary.append("| ${metric.label} | **${coverage}** | ${metric.covered} / ${metric.total} |\n")
+      logger.lifecycle("${metric.label} coverage: ${coverage} (${metric.covered}/${metric.total})")
+    }
+    summaryFile.get().asFile.setText(summary.toString(), 'UTF-8')
+    def githubSummary = System.getenv('GITHUB_STEP_SUMMARY')
+    if (githubSummary) {
+      new File(githubSummary).append(summary.toString(), 'UTF-8')
+    }
+  }
 }
 
 tasks.named('bootJar') {
